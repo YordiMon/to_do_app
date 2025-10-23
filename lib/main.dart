@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(ToDoApp());
@@ -28,6 +30,20 @@ class Task {
   bool isCompleted;
 
   Task({required this.title, this.isCompleted = false});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'isCompleted': isCompleted,
+    };
+  }
+
+  factory Task.fromMap(Map<String, dynamic> map) {
+    return Task(
+      title: map['title'],
+      isCompleted: map['isCompleted'],
+    );
+  }
 }
 
 class ToDoListPage extends StatefulWidget {
@@ -39,9 +55,35 @@ class _ToDoListPageState extends State<ToDoListPage> {
   final List<Task> _tasks = [];
   final TextEditingController _controller = TextEditingController();
 
-  // 🎨 Puedes cambiar estos dos colores fácilmente
-  final Color backgroundColor = const Color(0xFF1E1E1E); // Fondo principal
-  final Color cardColor = const Color(0xFF2C2C2C); // Color de las tarjetas
+  final Color backgroundColor = const Color(0xFF1E1E1E);
+  final Color cardColor = const Color(0xFF2C2C2C);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks(); // Cargar tareas al iniciar
+  }
+
+  // Guardar tareas en SharedPreferences
+  void _saveTasks() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> tasksString =
+        _tasks.map((task) => jsonEncode(task.toMap())).toList();
+    await prefs.setStringList('tasks', tasksString);
+  }
+
+  // Cargar tareas desde SharedPreferences
+  void _loadTasks() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? tasksString = prefs.getStringList('tasks');
+    if (tasksString != null) {
+      setState(() {
+        _tasks.clear();
+        _tasks.addAll(
+            tasksString.map((str) => Task.fromMap(jsonDecode(str))).toList());
+      });
+    }
+  }
 
   void _addTask() {
     if (_controller.text.isNotEmpty) {
@@ -49,6 +91,7 @@ class _ToDoListPageState extends State<ToDoListPage> {
         _tasks.add(Task(title: _controller.text));
         _controller.clear();
       });
+      _saveTasks();
     }
   }
 
@@ -57,21 +100,39 @@ class _ToDoListPageState extends State<ToDoListPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: backgroundColor,
-        title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.lightBlueAccent, wordSpacing: 5, letterSpacing: 2)),
-        content: const Text('¿Seguro que quieres eliminar esta tarea?', style: TextStyle(color: Colors.white70, wordSpacing: 5, letterSpacing: 2)),
+        title: const Text(
+          'Confirmar eliminación',
+          style: TextStyle(
+              color: Colors.lightBlueAccent,
+              wordSpacing: 5,
+              letterSpacing: 2),
+        ),
+        content: const Text(
+          '¿Seguro que quieres eliminar esta tarea?',
+          style:
+              TextStyle(color: Colors.white70, wordSpacing: 5, letterSpacing: 2),
+        ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8), // ⬅️ aquí ajustas el radio
+          borderRadius: BorderRadius.circular(8),
         ),
         actions: [
           TextButton(
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white70, wordSpacing: 5, letterSpacing: 2)),
+            child: const Text(
+              'Cancelar',
+              style:
+                  TextStyle(color: Colors.white70, wordSpacing: 5, letterSpacing: 2),
+            ),
             onPressed: () => Navigator.pop(context, false),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.lightBlueAccent,
             ),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.white, wordSpacing: 5, letterSpacing: 2)),
+            child: const Text(
+              'Eliminar',
+              style:
+                  TextStyle(color: Colors.white, wordSpacing: 5, letterSpacing: 2),
+            ),
             onPressed: () => Navigator.pop(context, true),
           ),
         ],
@@ -82,18 +143,18 @@ class _ToDoListPageState extends State<ToDoListPage> {
       setState(() {
         _tasks.removeAt(index);
       });
+      _saveTasks();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          behavior: SnackBarBehavior.floating, 
-          margin: const EdgeInsets.only(right: 350, left: 350, bottom: 16), 
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           backgroundColor: Colors.blueGrey,
-          content: Container( 
-            child: const Text(
-              'Tarea eliminada',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, wordSpacing: 5, letterSpacing: 2),
-            ),
+          content: const Text(
+            'Tarea eliminada',
+            style:
+                TextStyle(color: Colors.white, fontWeight: FontWeight.bold, wordSpacing: 5, letterSpacing: 2),
           ),
         ),
       );
@@ -104,30 +165,32 @@ class _ToDoListPageState extends State<ToDoListPage> {
     setState(() {
       _tasks[index].isCompleted = !_tasks[index].isCompleted;
     });
+    _saveTasks();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Tamaño de pantalla para responsividad
+    double screenWidth = MediaQuery.of(context).size.width;
+    double paddingHorizontal = screenWidth > 600 ? 50 : 20;
+
     return Scaffold(
-      backgroundColor: backgroundColor, 
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 37, 37, 37),
-        title: const Padding(
-          padding: EdgeInsets.only(left: 340.0, top: 8.0, bottom: 8.0),
-          child: Text(
-            'LISTA DE TAREAS POR HACER',
-            style: TextStyle(
+        title: const Text(
+          'LISTA DE TAREAS POR HACER',
+          style: TextStyle(
               color: Colors.lightBlueAccent,
               fontWeight: FontWeight.bold,
               fontSize: 16,
               wordSpacing: 5,
-              letterSpacing: 2
-            ),
-          ),
+              letterSpacing: 2),
         ),
+        centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 350, vertical: 20),
+        padding: EdgeInsets.symmetric(horizontal: paddingHorizontal, vertical: 20),
         child: Column(
           children: [
             Row(
@@ -135,12 +198,14 @@ class _ToDoListPageState extends State<ToDoListPage> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    style: const TextStyle(color: Colors.white, wordSpacing: 5, letterSpacing: 2),
+                    style: const TextStyle(
+                        color: Colors.white, wordSpacing: 5, letterSpacing: 2),
                     decoration: InputDecoration(
                       labelText: 'Agregar nueva tarea',
-                      labelStyle: const TextStyle(color: Colors.blueGrey, wordSpacing: 5, letterSpacing: 2),
+                      labelStyle: const TextStyle(
+                          color: Colors.blueGrey, wordSpacing: 5, letterSpacing: 2),
                       filled: true,
-                      fillColor: const Color(0xFF2C2C2C),
+                      fillColor: cardColor,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
                         borderSide: BorderSide.none,
@@ -149,47 +214,53 @@ class _ToDoListPageState extends State<ToDoListPage> {
                   ),
                 ),
                 const SizedBox(width: 10),
-               ElevatedButton(
-                onPressed: _addTask,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.lightBlueAccent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                ElevatedButton(
+                  onPressed: _addTask,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.lightBlueAccent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    minimumSize: const Size(45, 45),
                   ),
-                  minimumSize: const Size(40, 45),
+                  child: const Icon(Icons.add, color: Colors.white),
                 ),
-                child: const Icon(Icons.add, color: Colors.white),
-              ),
               ],
             ),
             const SizedBox(height: 20),
-
-            // Lista de tareas
             Expanded(
               child: _tasks.isEmpty
                   ? const Center(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
+                        children: [
+                          Text(
                             'No hay tareas pendientes',
-                            style: TextStyle(fontSize: 16, color: Colors.blueGrey, wordSpacing: 5, letterSpacing: 2),
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.blueGrey,
+                                wordSpacing: 5,
+                                letterSpacing: 2),
                           ),
+                          SizedBox(height: 8),
                           Text(
                             '¡Agregue una nueva tarea!',
-                            style: TextStyle(fontSize: 22, color: Colors.lightBlueAccent, wordSpacing: 5, letterSpacing: 2),
+                            style: TextStyle(
+                                fontSize: 22,
+                                color: Colors.lightBlueAccent,
+                                wordSpacing: 5,
+                                letterSpacing: 2),
                           ),
-                        ]
-                      )
+                        ],
+                      ),
                     )
                   : ListView.builder(
                       itemCount: _tasks.length,
                       itemBuilder: (context, index) {
                         return Card(
                           color: _tasks[index].isCompleted
-                            ? const Color.fromARGB(255, 30, 60, 90)
-                            : const Color.fromARGB(255, 57, 57, 57), 
+                              ? const Color.fromARGB(255, 30, 60, 90)
+                              : cardColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -198,10 +269,14 @@ class _ToDoListPageState extends State<ToDoListPage> {
                             title: Text(
                               _tasks[index].title,
                               style: TextStyle(
-                                wordSpacing: 5, letterSpacing: 2,
+                                wordSpacing: 5,
+                                letterSpacing: 2,
                                 color: _tasks[index].isCompleted
                                     ? Colors.lightBlueAccent
                                     : Colors.white,
+                                decoration: _tasks[index].isCompleted
+                                    ? TextDecoration.lineThrough
+                                    : null,
                               ),
                             ),
                             leading: Checkbox(
