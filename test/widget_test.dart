@@ -11,20 +11,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:to_do_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Add todo item test', (WidgetTester tester) async {
+    // Build our app and trigger a frame
+    await tester.pumpWidget(ToDoApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the list is empty at start
+    expect(find.byType(ListTile), findsNothing);
 
-    // Tap the '+' icon and trigger a frame.
+    // Enter text in the TextField
+    await tester.enterText(find.byType(TextField), 'Test Todo');
+    
+    // Tap the add button
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that our todo item was added
+    expect(find.text('Test Todo'), findsOneWidget);
+    
+    // Verify checkbox exists and is unchecked
+    expect(find.byType(Checkbox), findsOneWidget);
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, false);
   });
 }
